@@ -1,0 +1,17 @@
+﻿*.db
+*.db-*
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# local development tooling (venv, downloaded harness, run outputs)
+.dev/
+
+# lead's live room-plan sources (published as room snapshots)
+/plan.md
+/architecture.json

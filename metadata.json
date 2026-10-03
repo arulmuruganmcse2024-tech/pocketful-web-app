@@ -1,0 +1,8 @@
+{
+  "name": "Pocketful — Peer-to-Peer Wallet & Ledger",
+  "description": "A peer-to-peer wallet and payment ledger with idempotent transfers, bill splitting, payment requests, authorization holds, historical statements, and refunds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
