@@ -1057,6 +1057,132 @@ app.post("/correction-batches", (req, res) => {
   res.status(result.status).json(result.body);
 });
 
+app.post("/api/ai/assistant", async (req, res, next) => {
+  try {
+    const st = store.read();
+    const u = authUser(st, req);
+    const obj = parseBody(req);
+    const message = typeof obj.message === "string" ? obj.message.trim() : "";
+    if (!message) {
+      err(422, "validation_failed");
+    }
+
+    // Gather real financial data for authenticated user only
+    const held = store.heldMap(st)[u.id] || 0;
+    const available = Math.max(0, u.balance - held);
+    const cur = st.currency;
+    const mu = st.minor_units;
+
+    // Recent activity
+    const userPayments = st.payments
+      .filter((p: any) => p.from_user_id === u.id || p.to_user_id === u.id)
+      .slice(-10)
+      .map((p: any) => store.serializePayment(st, p));
+
+    // Pending requests
+    const pendingIncoming = st.requests
+      .filter((r: any) => r.payer_id === u.id && r.status === "pending")
+      .map((r: any) => store.serializeRequest(st, r));
+    const pendingOutgoing = st.requests
+      .filter((r: any) => r.requester_id === u.id && r.status === "pending")
+      .map((r: any) => store.serializeRequest(st, r));
+
+    // Active authorizations
+    const activeAuths = st.authorizations
+      .filter((a: any) => (a.from_user_id === u.id || a.to_user_id === u.id) && a.status === "open")
+      .map((a: any) => store.serializeAuth(st, a));
+
+    const contextData = {
+      user: {
+        handle: u.handle,
+        display_name: u.display_name,
+        currency: cur,
+        minor_units: mu,
+        balance_total_minor: u.balance,
+        balance_held_minor: held,
+        balance_available_minor: available,
+      },
+      pending_requests: {
+        incoming_to_pay: pendingIncoming,
+        outgoing_requested: pendingOutgoing,
+      },
+      active_holds: activeAuths,
+      recent_activity: userPayments,
+    };
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      res.json({
+        reply: "AI assistant is currently offline (GEMINI_API_KEY is not configured). All core Pocketful wallet, payment, split, authorization, and statement features remain fully functional!",
+        safe_context: {
+          available,
+          held,
+          total: u.balance,
+          currency: cur,
+        },
+      });
+      return;
+    }
+
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+
+      const systemInstruction = `You are the Pocketful Financial Intelligence Assistant.
+You provide clear, concise, and helpful explanations of the authenticated user's Pocketful wallet and ledger.
+Rules:
+1. You are strictly READ-ONLY. You cannot execute payments, refunds, transfers, voids, or captures.
+2. If the user asks you to execute a financial action (e.g. "send $10 to Bob", "refund this payment"), explain that you cannot perform transactions directly for safety, and guide them clearly to the exact UI button/page in Pocketful to complete it.
+3. Only use the real financial context provided. Do not hallucinate transactions, counterparties, or balances.
+4. Monetary values are provided in integer minor units (e.g. 1500 with 2 minor units = 15.00). Format them nicely with the user's currency.
+5. If the user asks why their available balance is lower than total balance, explain their active reservation holds.
+Keep answers concise, direct, professional, and friendly.`;
+
+      const prompt = `User question: "${message}"\n\nReal authenticated account context:\n${JSON.stringify(contextData, null, 2)}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature: 0.2,
+        },
+      });
+
+      const replyText = response.text || "I was unable to analyze your request. Please try again.";
+      res.json({
+        reply: replyText,
+        safe_context: {
+          available,
+          held,
+          total: u.balance,
+          currency: cur,
+        },
+      });
+    } catch (aiErr: any) {
+      console.error("Gemini assistant error:", aiErr?.message || aiErr);
+      res.json({
+        reply: "I'm temporarily unable to reach the Gemini service. Your Pocketful wallet and payments are unaffected. Please try again shortly.",
+        safe_context: {
+          available,
+          held,
+          total: u.balance,
+          currency: cur,
+        },
+      });
+    }
+  } catch (e) {
+    next(e);
+  }
+});
+
 app.get("/", (_req, res) => {
   res.type("html").send(uiHtml("/"));
 });
@@ -1086,8 +1212,13 @@ app.use((errObj: any, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const PORT = Number(process.env.PORT || 3000);
-if (process.env.NODE_ENV !== "test") {
+const isDirectRun =
+  Boolean(process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js")));
+
+if (isDirectRun && process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Pocketful server listening on http://0.0.0.0:${PORT}`);
   });
 }
+
+export default app;

@@ -1,4 +1,7 @@
-﻿*.db
+node_modules/
+data/
+*.tmp
+*.db
 *.db-*
 __pycache__/
 *.pyc

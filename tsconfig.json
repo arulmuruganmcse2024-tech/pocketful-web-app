@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["server.ts", "core.ts", "ui.ts", "test.ts"]
+  "include": ["server.ts", "core.ts", "ui.ts", "test.ts", "multi_user_e2e.ts", "api/**/*.ts"]
 }

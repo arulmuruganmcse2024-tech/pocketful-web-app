@@ -614,6 +614,78 @@ button.dangerbtn:hover:not(:disabled) {
     scroll-behavior: auto !important;
   }
 }
+
+/* AI Assistant */
+.ai-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 390px;
+  max-width: calc(100vw - 32px);
+  background: #111726;
+  border: 1px solid var(--border-card);
+  border-radius: 18px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ai-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-card);
+  background: rgba(255, 255, 255, 0.02);
+}
+.ai-privacy-note {
+  padding: 6px 16px;
+  font-size: 11px;
+  color: var(--text-subtle);
+  background: rgba(16, 185, 129, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.ai-messages {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ai-msg {
+  padding: 10px 14px;
+  border-radius: 12px;
+  max-width: 88%;
+  word-break: break-word;
+}
+.ai-msg-bot {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  align-self: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ai-msg-user {
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: #fff;
+  align-self: flex-end;
+}
+.ai-suggested {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.2);
+}
+.ai-prompt {
+  font-size: 11px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
 </style>
 </head>
 <body>
@@ -635,6 +707,35 @@ button.dangerbtn:hover:not(:disabled) {
     </div>
   </header>
   <main id="app"></main>
+</div>
+
+<div id="ai-assistant-panel" data-testid="ai-assistant-panel" class="ai-panel" style="display:none">
+  <div class="ai-panel-header">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="color:var(--accent-emerald);font-size:16px">✦</span>
+      <strong>Gemini Assistant</strong>
+      <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(16,185,129,0.15);color:var(--accent-emerald);font-weight:700">READ-ONLY</span>
+    </div>
+    <button id="ai-assistant-close" data-testid="ai-assistant-close" type="button" class="secondarybtn" style="width:auto;padding:4px 8px;font-size:12px;line-height:1">✕</button>
+  </div>
+  <div class="ai-privacy-note">
+    <span>🔒 Grounded exclusively in your real authenticated account data.</span>
+  </div>
+  <div id="ai-assistant-messages" data-testid="ai-assistant-messages" class="ai-messages">
+    <div class="ai-msg ai-msg-bot">
+      Hello! I'm your Pocketful Assistant. I can explain your available balance, active reservation holds, recent activity, and pending requests. How can I help today?
+    </div>
+  </div>
+  <div class="ai-suggested">
+    <button type="button" class="quick-chip ai-prompt" data-testid="ai-prompt-balance" data-q="What is my current available balance and why?">Available balance</button>
+    <button type="button" class="quick-chip ai-prompt" data-testid="ai-prompt-activity" data-q="Summarize my recent activity today">Summarize activity</button>
+    <button type="button" class="quick-chip ai-prompt" data-testid="ai-prompt-requests" data-q="Show my pending payment requests">Pending requests</button>
+    <button type="button" class="quick-chip ai-prompt" data-testid="ai-prompt-holds" data-q="Explain my held funds and active reservations">Explain held funds</button>
+  </div>
+  <form id="ai-assistant-form" style="display:flex;gap:8px;padding:12px;border-top:1px solid var(--border-card)">
+    <input id="ai-assistant-input" data-testid="ai-assistant-input" placeholder="Ask about your balance, holds, or activity..." autocomplete="off" style="flex:1;font-size:13px">
+    <button id="ai-assistant-submit" data-testid="ai-assistant-submit" type="submit" style="width:auto;padding:8px 16px;font-size:13px">Ask</button>
+  </form>
 </div>
 
 <script>
@@ -718,11 +819,56 @@ function setUserBar(me) {
     return;
   }
   const initials = esc((me.display_name || me.handle || "U").slice(0, 1).toUpperCase());
-  b.innerHTML = '<div class="user-identity"><div class="user-avatar">' + initials + '</div><div class="user-meta"><strong data-testid="current-user">' + esc(me.display_name) + '</strong><span data-testid="current-handle">@' + esc(me.handle) + '</span></div></div><button id="logout-button" data-testid="logout-button" class="secondarybtn" style="width:auto;padding:8px 14px">Log out</button>';
+  b.innerHTML = '<div class="user-identity">' +
+    '<div class="user-avatar">' + initials + '</div>' +
+    '<div class="user-meta">' +
+      '<strong data-testid="current-user">' + esc(me.display_name) + '</strong>' +
+      '<span data-testid="current-handle">@' + esc(me.handle) + '</span>' +
+    '</div>' +
+  '</div>' +
+  '<select id="demo-user-switch" data-testid="demo-user-switch" style="width:auto;font-size:12px;padding:6px 20px 6px 8px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-card);color:var(--text-main)">' +
+    '<option value="">Switch user...</option>' +
+    '<option value="ada@pocketful.dev">Ada (@ada)</option>' +
+    '<option value="bob@pocketful.dev">Bob (@bob)</option>' +
+    '<option value="cy@pocketful.dev">Cy (@cy)</option>' +
+  '</select>' +
+  '<button id="ai-assistant-toggle" data-testid="ai-assistant-toggle" class="secondarybtn" style="width:auto;padding:6px 12px;font-size:12px;color:var(--accent-emerald);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);display:inline-flex;align-items:center;gap:4px">✦ Ask Gemini</button>' +
+  '<button id="logout-button" data-testid="logout-button" class="secondarybtn" style="width:auto;padding:6px 12px;font-size:12px">Log out</button>';
+
   document.getElementById("logout-button").onclick = () => {
     localStorage.removeItem(tokenKey);
     location.href = "/login";
   };
+
+  const aiToggle = document.getElementById("ai-assistant-toggle");
+  if (aiToggle) {
+    aiToggle.onclick = () => {
+      const p = document.getElementById("ai-assistant-panel");
+      if (p) p.style.display = p.style.display === "none" ? "flex" : "none";
+    };
+  }
+
+  const sw = document.getElementById("demo-user-switch");
+  if (sw) {
+    sw.onchange = async () => {
+      const em = sw.value;
+      if (!em) return;
+      try {
+        const r = await fetch("/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ email: em, password: "password123" })
+        });
+        const d = await r.json();
+        if (d.token) {
+          localStorage.setItem(tokenKey, d.token);
+          location.reload();
+        }
+      } catch (e) {
+        console.error("Failed to switch demo user:", e);
+      }
+    };
+  }
 }
 
 function mustAuth() {
@@ -984,17 +1130,17 @@ function walletView() {
         '<label>Recipient handle' +
           '<input data-testid="pay-handle" id="pay-handle" placeholder="e.g. bob" autocomplete="off">' +
           '<div class="quick-chips">' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'pay-handle\\').value=\\'bob\\'">@bob</button>' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'pay-handle\\').value=\\'cy\\'">@cy</button>' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'pay-handle\\').value=\\'ada\\'">@ada</button>' +
+            '<button type="button" class="quick-chip" data-set-handle="bob">@bob</button>' +
+            '<button type="button" class="quick-chip" data-set-handle="cy">@cy</button>' +
+            '<button type="button" class="quick-chip" data-set-handle="ada">@ada</button>' +
           '</div>' +
         '</label>' +
         '<label>Amount' +
           '<input data-testid="pay-amount" id="pay-amount" inputmode="decimal" value="15.00">' +
           '<div class="quick-chips">' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'pay-amount\\').value=\\'5.00\\'">5.00</button>' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'pay-amount\\').value=\\'15.00\\'">15.00</button>' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'pay-amount\\').value=\\'50.00\\'">50.00</button>' +
+            '<button type="button" class="quick-chip" data-set-amount="5.00">5.00</button>' +
+            '<button type="button" class="quick-chip" data-set-amount="15.00">15.00</button>' +
+            '<button type="button" class="quick-chip" data-set-amount="50.00">50.00</button>' +
           '</div>' +
         '</label>' +
         '<label>Note' +
@@ -1045,9 +1191,9 @@ function requestForm() {
       '<label>Payer handle' +
         '<input id="request-handle" data-testid="request-handle" placeholder="e.g. bob" autocomplete="off">' +
         '<div class="quick-chips">' +
-          '<button type="button" class="quick-chip" onclick="document.getElementById(\\'request-handle\\').value=\\'bob\\'">@bob</button>' +
-          '<button type="button" class="quick-chip" onclick="document.getElementById(\\'request-handle\\').value=\\'cy\\'">@cy</button>' +
-          '<button type="button" class="quick-chip" onclick="document.getElementById(\\'request-handle\\').value=\\'ada\\'">@ada</button>' +
+          '<button type="button" class="quick-chip" data-set-req-handle="bob">@bob</button>' +
+          '<button type="button" class="quick-chip" data-set-req-handle="cy">@cy</button>' +
+          '<button type="button" class="quick-chip" data-set-req-handle="ada">@ada</button>' +
         '</div>' +
       '</label>' +
       '<label>Amount' +
@@ -1089,8 +1235,8 @@ function splitView() {
         '<label>Participant handles (comma-separated, in order)' +
           '<input id="split-handles" data-testid="split-handles" placeholder="ada,bob,cy">' +
           '<div class="quick-chips">' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'split-handles\\').value=\\'ada,bob,cy\\'">ada, bob, cy</button>' +
-            '<button type="button" class="quick-chip" onclick="document.getElementById(\\'split-handles\\').value=\\'bob,cy\\'">bob, cy</button>' +
+            '<button type="button" class="quick-chip" data-set-split-handles="ada,bob,cy">ada, bob, cy</button>' +
+            '<button type="button" class="quick-chip" data-set-split-handles="bob,cy">bob, cy</button>' +
           '</div>' +
         '</label>' +
         '<label>Note' +
@@ -1230,6 +1376,12 @@ function wireRequestCreate() {
   const f = document.getElementById("request-form");
   const button = document.getElementById("request-submit");
   if (!f || !button) return;
+  f.querySelectorAll("[data-set-req-handle]").forEach(b => {
+    b.onclick = () => {
+      const inp = document.getElementById("request-handle");
+      if (inp) inp.value = b.dataset.setReqHandle;
+    };
+  });
   let busy = false;
   f.onsubmit = async e => {
     e.preventDefault();
@@ -1348,6 +1500,12 @@ function renderSplit() {
 
   a.oninput = update;
   h.oninput = update;
+  document.querySelectorAll("[data-set-split-handles]").forEach(b => {
+    b.onclick = () => {
+      h.value = b.dataset.setSplitHandles;
+      update();
+    };
+  });
   update();
 
   form.onsubmit = async e => {
@@ -1697,6 +1855,8 @@ async function loadStatement(reset = true) {
         '<div>' +
           '<strong>' + esc(p.from_handle) + ' → ' + esc(p.to_handle) + '</strong>' +
           '<div class="small">' + esc(p.note || "Payment") + ' · ' + esc(e.effective_at) + ' · rev ' + esc(e.revision) + '</div>' +
+          '<button class="secondarybtn" data-rev-btn="' + esc(p.payment_id) + '" style="width:auto;padding:2px 8px;font-size:11px;margin-top:4px">Revisions (' + esc(e.revision) + ')</button>' +
+          '<div id="rev-box-' + esc(p.payment_id) + '" style="display:none;margin-top:6px;padding:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border-card);border-radius:8px;font-size:11px;text-align:left"></div>' +
         '</div>' +
         '<div style="text-align:right">' +
           '<strong style="font-family:var(--font-mono)">' + esc(money(e.delta, window.currentMu, window.currentCurrency)) + '</strong>' +
@@ -1716,6 +1876,29 @@ async function loadStatement(reset = true) {
       statementOffset += 50;
       loadStatement(false);
     };
+
+    document.querySelectorAll("[data-rev-btn]").forEach(b => {
+      b.onclick = async () => {
+        const pid = b.dataset.revBtn;
+        const box = document.getElementById("rev-box-" + pid);
+        if (!box) return;
+        if (box.style.display !== "none") {
+          box.style.display = "none";
+          return;
+        }
+        box.style.display = "";
+        box.innerHTML = '<span class="small">Loading revisions…</span>';
+        try {
+          const r = await api("/payments/" + encodeURIComponent(pid) + "/revisions");
+          const d = await j(r);
+          const revs = d.revisions || [];
+          box.innerHTML = '<div style="margin-bottom:4px;font-weight:600">Revisions Chain:</div>' +
+            revs.map(rv => '<div class="small" style="margin-bottom:2px">Rev ' + rv.revision + ': ' + esc(money(rv.amount, window.currentMu, window.currentCurrency)) + ' · ' + esc(rv.reason || "original") + ' · <span style="font-family:var(--font-mono)">' + esc(rv.recorded_at) + '</span></div>').join("");
+        } catch (ex) {
+          box.innerHTML = '<span class="small" style="color:var(--accent-crimson)">' + esc(ex.message) + '</span>';
+        }
+      };
+    });
 
     document.querySelectorAll("[data-refund]").forEach(b => b.onclick = async () => {
       const amt = Number(b.dataset.amount);
@@ -1787,9 +1970,9 @@ function authFormsPage(kind) {
       (!signup ? '<div class="demo-preset-box">' +
         '<div class="demo-preset-label">One-click test accounts</div>' +
         '<div style="display:grid;gap:6px">' +
-          '<button type="button" class="secondarybtn" style="text-align:left;justify-content:flex-start;font-size:12px;padding:8px 12px" onclick="fillCreds(\\'ada@pocketful.dev\\')"><strong>Ada Lovelace</strong> · ada@pocketful.dev</button>' +
-          '<button type="button" class="secondarybtn" style="text-align:left;justify-content:flex-start;font-size:12px;padding:8px 12px" onclick="fillCreds(\\'bob@pocketful.dev\\')"><strong>Bob Stone</strong> · bob@pocketful.dev</button>' +
-          '<button type="button" class="secondarybtn" style="text-align:left;justify-content:flex-start;font-size:12px;padding:8px 12px" onclick="fillCreds(\\'cy@pocketful.dev\\')"><strong>Cy Young</strong> · cy@pocketful.dev</button>' +
+          '<button type="button" class="secondarybtn" style="text-align:left;justify-content:flex-start;font-size:12px;padding:8px 12px" data-cred="ada@pocketful.dev"><strong>Ada Lovelace</strong> · ada@pocketful.dev</button>' +
+          '<button type="button" class="secondarybtn" style="text-align:left;justify-content:flex-start;font-size:12px;padding:8px 12px" data-cred="bob@pocketful.dev"><strong>Bob Stone</strong> · bob@pocketful.dev</button>' +
+          '<button type="button" class="secondarybtn" style="text-align:left;justify-content:flex-start;font-size:12px;padding:8px 12px" data-cred="cy@pocketful.dev"><strong>Cy Young</strong> · cy@pocketful.dev</button>' +
         '</div>' +
       '</div>' : '') +
       '<div style="margin-top:20px;text-align:center" class="small">' +
@@ -1804,6 +1987,9 @@ function authFormsPage(kind) {
     document.getElementById("login-email").value = email;
     document.getElementById("login-password").value = "password123";
   };
+  document.querySelectorAll("[data-cred]").forEach(b => {
+    b.onclick = () => fillCreds(b.dataset.cred);
+  });
 
   const form = document.getElementById("auth-form");
   const button = form.querySelector("button");
@@ -1873,6 +2059,18 @@ async function render() {
   if (ROUTE === "/") {
     app.innerHTML = walletView() + requestForm() + (STAGE >= 4 ? demoFundView() : "");
     wireRequestCreate();
+    document.querySelectorAll("[data-set-handle]").forEach(b => {
+      b.onclick = () => {
+        const inp = document.getElementById("pay-handle");
+        if (inp) inp.value = b.dataset.setHandle;
+      };
+    });
+    document.querySelectorAll("[data-set-amount]").forEach(b => {
+      b.onclick = () => {
+        const inp = document.getElementById("pay-amount");
+        if (inp) inp.value = b.dataset.setAmount;
+      };
+    });
     document.getElementById("wallet-refresh").onclick = refreshWallet;
     document.getElementById("activity-search").oninput = renderActivity;
     document.getElementById("activity-filter").onchange = renderActivity;
@@ -1975,6 +2173,57 @@ async function render() {
   }
 }
 
+function initAiAssistant() {
+  const panel = document.getElementById("ai-assistant-panel");
+  const closeBtn = document.getElementById("ai-assistant-close");
+  const form = document.getElementById("ai-assistant-form");
+  const input = document.getElementById("ai-assistant-input");
+  const submit = document.getElementById("ai-assistant-submit");
+  const msgBox = document.getElementById("ai-assistant-messages");
+  if (!panel || !form || !input || !msgBox) return;
+
+  if (closeBtn) closeBtn.onclick = () => { panel.style.display = "none"; };
+
+  const ask = async (q) => {
+    const text = (q || input.value || "").trim();
+    if (!text || submit.disabled) return;
+    input.value = "";
+    msgBox.insertAdjacentHTML("beforeend", '<div class="ai-msg ai-msg-user">' + esc(text) + '</div>');
+    msgBox.insertAdjacentHTML("beforeend", '<div class="ai-msg ai-msg-bot" id="ai-loading">Thinking…</div>');
+    msgBox.scrollTop = msgBox.scrollHeight;
+    submit.disabled = true;
+    try {
+      const r = await api("/api/ai/assistant", {
+        method: "POST",
+        body: JSON.stringify({ message: text })
+      });
+      const d = await j(r);
+      document.getElementById("ai-loading")?.remove();
+      const reply = d.reply || (d.error?.message ? "Error: " + d.error.message : "No response available.");
+      msgBox.insertAdjacentHTML("beforeend", '<div class="ai-msg ai-msg-bot">' + esc(reply) + '</div>');
+    } catch (e) {
+      document.getElementById("ai-loading")?.remove();
+      msgBox.insertAdjacentHTML("beforeend", '<div class="ai-msg ai-msg-bot" style="color:var(--accent-crimson)">' + esc(e.message || "Failed to reach AI assistant") + '</div>');
+    } finally {
+      submit.disabled = false;
+      msgBox.scrollTop = msgBox.scrollHeight;
+    }
+  };
+
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    ask();
+  };
+
+  document.querySelectorAll(".ai-prompt").forEach(b => {
+    b.onclick = () => {
+      const q = b.dataset.q;
+      if (q) ask(q);
+    };
+  });
+}
+
+initAiAssistant();
 render();
 </script>
 </body>
